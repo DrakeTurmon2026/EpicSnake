@@ -13,12 +13,15 @@ movetimer = resettime
 
 pygame.display.set_caption("DTier's Snake")
 
-diesound = pygame.mixer.Sound("hitHurt.wav")
+diesound = pygame.mixer.Sound("explosion.wav")
 scoresound = pygame.mixer.Sound("pickupCoin.wav")
 portalsound = pygame.mixer.Sound("Portal.wav")
+dirsound = pygame.mixer.Sound("move.wav")
 juicyoffset = [0,0]
+appleimage = pygame.image.load("apple.png")
 
-timer = 15
+timerreset = 10
+timer = timerreset
 
 def lerp2(vec, goalvec, f):
     x = (vec[0] * (1  - f)) + (goalvec[0] * f)
@@ -37,11 +40,19 @@ class snake:
         self.dir = 0
         self.inputque = []
         self.perished = False
+        self.iswin = False
     def move(self):
-        global dirlist
+        global dirlist, RedPortal, BluePortal
 
         if len(self.inputque) > 0:
             self.dir = self.inputque.pop(0)
+
+        nextpos = numpy.add(self.position,dirlist[self.dir])
+
+        if nextpos[0] == RedPortal.position[0] and nextpos[1] == RedPortal.position[1]:
+            plr.position = RedPortal.Connected.position
+        elif nextpos[0] == BluePortal.position[0] and nextpos[1] == BluePortal.position[1]:
+            plr.position = BluePortal.Connected.position
 
         nextpos = numpy.add(self.position,dirlist[self.dir])
 
@@ -73,6 +84,8 @@ class snake:
         self.length += 1
         toappend = self.history[len(self.history) - 1]
         self.history.append(toappend)
+        if self.length >= 622:
+            self.iswin = True
 
 class apple:
     def __init__(self):
@@ -92,10 +105,11 @@ plr = snake((0,255,0),2,[12,12])
 appl = apple()
 dirlist = [(0,-1),(1,0),(0,1),(-1,0)] #north,east,south,west
 
-font = pygame.font.Font('ARCADECLASSIC.ttf', 100)
+font = pygame.font.Font('Snake Chan.ttf', 70)
 text = font.render("Game Over", False, (255,0,0))
-smallfont = pygame.font.Font('ARCADECLASSIC.ttf', 30)
+smallfont = pygame.font.Font('Snake Chan.ttf', 30)
 restarttext = smallfont.render("Press R to restart", False, (255,255,255))
+wintext = font.render("YOU WIN!", False, (219, 190, 0))
 
 RedPortal = portal([-1,-1], (250, 202, 42))
 BluePortal = portal([-1,-1], (41, 130, 255))
@@ -107,6 +121,8 @@ textrect = text.get_rect()
 textrect.center = (250,250)
 rectstart = restarttext.get_rect()
 rectstart.center = (250,300)
+winrect = wintext.get_rect()
+winrect.center = (250,250)
 
 # Run until the user asks to quit
 running = True
@@ -121,15 +137,19 @@ while running:
             if event.key == pygame.K_UP:
                 if (plr.dir != 2 or len(plr.inputque) > 0) and plr.dir != 0:
                     plr.inputque.append(0)
+                    pygame.mixer.Sound.play(dirsound)
             if event.key == pygame.K_RIGHT:
                 if (plr.dir != 3 or len(plr.inputque) > 0) and plr.dir != 1:
                     plr.inputque.append(1)
+                    pygame.mixer.Sound.play(dirsound)
             if event.key == pygame.K_DOWN:
                 if (plr.dir != 0 or len(plr.inputque) > 0) and plr.dir != 2:
                     plr.inputque.append(2)
+                    pygame.mixer.Sound.play(dirsound)
             if event.key == pygame.K_LEFT:
                 if  (plr.dir != 1 or len(plr.inputque) > 0) and plr.dir != 3:
                     plr.inputque.append(3)
+                    pygame.mixer.Sound.play(dirsound)
             if event.key == pygame.K_r:
                 if plr.perished:
                     appl.respawn()
@@ -140,6 +160,8 @@ while running:
 
                     RedPortal.connect(BluePortal)
                     BluePortal.connect(RedPortal)
+
+                    timer = timerreset
 
                     
 
@@ -158,15 +180,11 @@ while running:
         appl.respawn()
         pygame.mixer.Sound.play(scoresound)
         plr.extend()
-        
-    if plr.position[0] == RedPortal.position[0] and plr.position[1] == RedPortal.position[1]:
-        plr.position = RedPortal.Connected.position
-    elif plr.position[0] == BluePortal.position[0] and plr.position[1] == BluePortal.position[1]:
-        plr.position = BluePortal.Connected.position
+    
     # Fill the background with white
     screen.fill((0, 0, 0))
     
-    if not plr.perished:
+    if not plr.perished and not plr.iswin:
         #render the apple
         pygame.draw.rect(screen, (255,0,0), pygame.rect.Rect(appl.Position[0]*20 + 1 + juicyoffset[0],appl.Position[1]*20 + 1 + juicyoffset[1],18,18))
         pygame.draw.rect(screen, RedPortal.color, pygame.rect.Rect(RedPortal.position[0]*20 + 1 + juicyoffset[0],RedPortal.position[1]*20 + 1 + juicyoffset[1],18,18))
@@ -184,14 +202,20 @@ while running:
             timerrect.center = (250, 30)
             screen.blit(timertext, timerrect)
             if timer <= 0:
-                timer = 15
+                timer = timerreset
                 RedPortal.position = [randint(0,24), randint(0,24)]
                 BluePortal.position = [randint(0,24), randint(0,24)]
                 pygame.mixer.Sound.play(portalsound)
                 #do funny powerup stuff here
-    else:
+    elif plr.perished:
         screen.blit(text,textrect)
         screen.blit(restarttext,rectstart)
+        scoretext = smallfont.render("Score: " + str(plr.length), False, (255,255,255))
+        scorerect = scoretext.get_rect()
+        scorerect.center = (250, 330)
+        screen.blit(scoretext, scorerect)
+    else:
+        screen.blit(wintext, winrect)
 
     # Flip the display
     pygame.display.flip()
