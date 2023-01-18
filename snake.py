@@ -15,6 +15,15 @@ pygame.display.set_caption("DTier's Snake")
 
 diesound = pygame.mixer.Sound("hitHurt.wav")
 scoresound = pygame.mixer.Sound("pickupCoin.wav")
+portalsound = pygame.mixer.Sound("Portal.wav")
+juicyoffset = [0,0]
+
+timer = 15
+
+def lerp2(vec, goalvec, f):
+    x = (vec[0] * (1  - f)) + (goalvec[0] * f)
+    y = (vec[1] * (1  - f)) + (goalvec[1] * f)
+    return [x,y]
 
 class snake:
     def __init__(self,color,length,position):
@@ -29,6 +38,8 @@ class snake:
         self.inputque = []
         self.perished = False
     def move(self):
+        global dirlist
+
         if len(self.inputque) > 0:
             self.dir = self.inputque.pop(0)
 
@@ -69,14 +80,28 @@ class apple:
     def respawn(self):
         self.Position = (randint(0,24), randint(0,24))
 
+class portal:
+    def __init__(self, positon, color) -> None:
+        self.position = positon
+        self.Connected = None
+        self.color = color
+    def connect(self, other):
+        self.Connected = other
+
 plr = snake((0,255,0),2,[12,12])
 appl = apple()
 dirlist = [(0,-1),(1,0),(0,1),(-1,0)] #north,east,south,west
 
 font = pygame.font.Font('ARCADECLASSIC.ttf', 100)
-text = font.render("Game Over", False, (255,255,255))
+text = font.render("Game Over", False, (255,0,0))
 smallfont = pygame.font.Font('ARCADECLASSIC.ttf', 30)
 restarttext = smallfont.render("Press R to restart", False, (255,255,255))
+
+RedPortal = portal([-1,-1], (250, 202, 42))
+BluePortal = portal([-1,-1], (41, 130, 255))
+
+RedPortal.connect(BluePortal)
+BluePortal.connect(RedPortal)
 
 textrect = text.get_rect()
 textrect.center = (250,250)
@@ -110,6 +135,17 @@ while running:
                     appl.respawn()
                     plr = snake((0,255,0),2,(12,12))
 
+                    RedPortal = portal([-1,-1], (250, 202, 42))
+                    BluePortal = portal([-1,-1], (41, 130, 255))
+
+                    RedPortal.connect(BluePortal)
+                    BluePortal.connect(RedPortal)
+
+                    
+
+    #JUICE
+    juicyoffset = lerp2(juicyoffset,[0,0],0.2)
+    
     #schmove man
     movetimer -= dt
     if movetimer <= 0 and not plr.perished:
@@ -123,16 +159,36 @@ while running:
         pygame.mixer.Sound.play(scoresound)
         plr.extend()
         
+    if plr.position[0] == RedPortal.position[0] and plr.position[1] == RedPortal.position[1]:
+        plr.position = RedPortal.Connected.position
+    elif plr.position[0] == BluePortal.position[0] and plr.position[1] == BluePortal.position[1]:
+        plr.position = BluePortal.Connected.position
     # Fill the background with white
     screen.fill((0, 0, 0))
     
     if not plr.perished:
         #render the apple
-        pygame.draw.rect(screen, (255,0,0), pygame.rect.Rect(appl.Position[0]*20 + 1,appl.Position[1]*20 + 1,18,18))
+        pygame.draw.rect(screen, (255,0,0), pygame.rect.Rect(appl.Position[0]*20 + 1 + juicyoffset[0],appl.Position[1]*20 + 1 + juicyoffset[1],18,18))
+        pygame.draw.rect(screen, RedPortal.color, pygame.rect.Rect(RedPortal.position[0]*20 + 1 + juicyoffset[0],RedPortal.position[1]*20 + 1 + juicyoffset[1],18,18))
+        pygame.draw.rect(screen, BluePortal.color, pygame.rect.Rect(BluePortal.position[0]*20 + 1 + juicyoffset[0],BluePortal.position[1]*20 + 1 + juicyoffset[1],18,18))
 
         #render the snek
         for nu, pos in enumerate(plr.history):
-            pygame.draw.rect(screen, plr.color, pygame.rect.Rect(pos[0]*20 + 1,pos[1]*20 + 1,18,18))
+            pygame.draw.rect(screen, plr.color, pygame.rect.Rect(pos[0]*20 + 1 + juicyoffset[0],pos[1]*20 + 1 + juicyoffset[1],18,18))
+
+        #funny powerups thing
+        if plr.length > 4:
+            timer -= dt
+            timertext = smallfont.render(str(math.ceil(timer)), False, (255,255,255))
+            timerrect = timertext.get_rect()
+            timerrect.center = (250, 30)
+            screen.blit(timertext, timerrect)
+            if timer <= 0:
+                timer = 15
+                RedPortal.position = [randint(0,24), randint(0,24)]
+                BluePortal.position = [randint(0,24), randint(0,24)]
+                pygame.mixer.Sound.play(portalsound)
+                #do funny powerup stuff here
     else:
         screen.blit(text,textrect)
         screen.blit(restarttext,rectstart)
